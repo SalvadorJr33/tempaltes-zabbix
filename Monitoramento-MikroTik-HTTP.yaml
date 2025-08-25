@@ -1,0 +1,642 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 7df96b18c230490a9a0a9e2307226338
+      name: Templates
+    - uuid: d688244129cf4cb3a256380512c714b7
+      name: Testes
+  templates:
+    - uuid: 9ee5867d63264825bf5df794ed8f82cd
+      template: 'Monitoramento Mikrotik API'
+      name: 'Monitoramento Mikrotik API'
+      groups:
+        - name: Templates
+        - name: Testes
+      items:
+        - uuid: ea2318be3fd34c988cd30aa26d020c60
+          name: 'Pega Dados Geral'
+          type: EXTERNAL
+          key: api_dados.py
+          history: 90d
+          value_type: TEXT
+          trends: '0'
+      discovery_rules:
+        - uuid: 78fcac2ecbb242408bf7821acbe5d7a2
+          name: 'Interfaces Ether'
+          type: DEPENDENT
+          key: interfaces.gerais
+          delay: '0'
+          lifetime: 30d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Regra de descoberta das interfaces físicas'
+          item_prototypes:
+            - uuid: 4be70ba0b3eb4093973c1cbdf768913b
+              name: 'Interface {#INTERFACENAME} Tráfego de Download atual:'
+              type: CALCULATED
+              key: 'download.calculado.interface.["{#INTERFACENAME}, {#INTERFACEID}"]'
+              history: 30d
+              value_type: FLOAT
+              units: Mbps
+              params: 'last(//network.interface.rxbytes.total.["{#INTERFACENAME}"]) - last(//network.interface.rxbytes.total.["{#INTERFACENAME}"],#2)'
+              description: 'Item destinado a calcular a taxa de download para monitoramento em tempo real'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-6'
+                - type: JAVASCRIPT
+                  parameters:
+                    - 'return parseFloat(value).toFixed(2);'
+              tags:
+                - tag: component
+                  value: network
+                - tag: information
+                  value: traffic
+                - tag: traffic
+                  value: download
+                - tag: type
+                  value: ether
+            - uuid: 77700e3d9bd54c26afcae8f0c8e3541c
+              name: 'Interface {#INTERFACENAME} MAC:'
+              type: DEPENDENT
+              key: 'mac.interface.["{#INTERFACENAME}, {#INTERFACEID}"]'
+              delay: '0'
+              history: 30d
+              value_type: TEXT
+              trends: '0'
+              description: 'Coleta o MAC da interface'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.interfaceEthernet[?(@.name == "{#INTERFACENAME}")].macAddress'
+                - type: REGEX
+                  parameters:
+                    - '\["([^"]+)"\]'
+                    - \1
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: network
+                - tag: Identificação
+                  value: 'Endereço MAC da {#INTERFACENAME}'
+                - tag: type
+                  value: ether
+            - uuid: 33dce0ef45ed4506af2a96b7d783311f
+              name: 'Interface {#INTERFACENAME}  MTU:'
+              type: DEPENDENT
+              key: 'mtu.interface.["{#INTERFACENAME}, {#INTERFACEID}"]'
+              delay: '0'
+              history: 30d
+              description: 'Item destinado a coletar o MTU da placa'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.interfaceEthernet[?(@.name == "{#INTERFACENAME}")].mtu'
+                - type: REGEX
+                  parameters:
+                    - '\["([^"]+)"\]'
+                    - \1
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: information
+                  value: MTU
+                - tag: interface
+                  value: '{#INTERFACENAME}'
+                - tag: type
+                  value: ether
+              trigger_prototypes:
+                - uuid: de7c04fca2ba423cb97c0400df5e1e96
+                  expression: 'change(/Monitoramento Mikrotik API/mtu.interface.["{#INTERFACENAME}, {#INTERFACEID}"])<>0'
+                  name: 'MTU alterado na placa {#INTERFACENAME}'
+                  priority: WARNING
+                  description: 'Destinado a alertar quando houver alteração no MTU da placa'
+                  manual_close: 'YES'
+            - uuid: 18c8a38f70914e539d15779c46143483
+              name: 'Interface {#INTERFACENAME} Download Total:'
+              type: DEPENDENT
+              key: 'network.interface.rxbytes.total.["{#INTERFACENAME}"]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: Bytes
+              description: 'Item para coletar o Download TOTAL da interface'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.interfaceEthernet[?(@.name == "{#INTERFACENAME}")].rxBytes'
+                - type: REGEX
+                  parameters:
+                    - '\["([^"]+)"\]'
+                    - \1
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: network
+                - tag: interface
+                  value: '{#INTERFACENAME}'
+                - tag: type
+                  value: ether
+            - uuid: 6d20d6513b4a4bd6853e36fa430995b6
+              name: 'Interface {#INTERFACENAME} Upload Total:'
+              type: DEPENDENT
+              key: 'network.interface.txbytes.total.["{#INTERFACENAME}"]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: Bytes
+              description: 'Item para coletar tráfego TOTAL de upload'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.interfaceEthernet[?(@.name == "{#INTERFACENAME}")].txBytes'
+                - type: REGEX
+                  parameters:
+                    - '\["([^"]+)"\]'
+                    - \1
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: network
+                - tag: interface
+                  value: '{#INTERFACENAME}'
+                - tag: type
+                  value: ether
+            - uuid: 6fb43b62262840fda348ee06d6e28718
+              name: 'Interface {#INTERFACENAME}  Status:'
+              type: DEPENDENT
+              key: 'running.interface.["{#INTERFACENAME}, {#INTERFACEID}"]'
+              delay: '0'
+              history: 30d
+              description: 'Item para informar se a placa está funcionando ou não'
+              valuemap:
+                name: 'UP / DOWN'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.interfaceEthernet[?(@.name == "{#INTERFACENAME}")].running'
+                - type: REGEX
+                  parameters:
+                    - '\["([^"]+)"\]'
+                    - \1
+                - type: STR_REPLACE
+                  parameters:
+                    - 'true'
+                    - '1'
+                - type: STR_REPLACE
+                  parameters:
+                    - 'false'
+                    - '0'
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: network
+                - tag: information
+                  value: running
+                - tag: type
+                  value: ether
+              trigger_prototypes:
+                - uuid: a8b4574afddd41ca95576168d4281bf7
+                  expression: 'last(/Monitoramento Mikrotik API/running.interface.["{#INTERFACENAME}, {#INTERFACEID}"],#2)=1 and last(/Monitoramento Mikrotik API/running.interface.["{#INTERFACENAME}, {#INTERFACEID}"])=0'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Monitoramento Mikrotik API/running.interface.["{#INTERFACENAME}, {#INTERFACEID}"])=1'
+                  name: 'Sem link na Interface {#INTERFACENAME}'
+                  priority: AVERAGE
+                  manual_close: 'YES'
+            - uuid: 8540cb722c8043409fb17b19006d4de0
+              name: 'Interface {#INTERFACENAME} Speed:'
+              type: DEPENDENT
+              key: 'speed.interface.["{#INTERFACENAME}, {#INTERFACEID}"]'
+              delay: '0'
+              history: 30d
+              value_type: TEXT
+              trends: '0'
+              description: |
+                Item para coletar a velocidade de linkagem da placa, exemplo:
+                /100 - 100Mbps (Fast)
+                /1000 - 1G ou 1000Mbps (Giga)
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.interfaceEthernet[?(@.name == "{#INTERFACENAME}")].speed'
+                - type: REGEX
+                  parameters:
+                    - '\["([^"]+)"\]'
+                    - \1
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: network
+                - tag: interface
+                  value: '{#INTERFACENAME}'
+                - tag: type
+                  value: ether
+              trigger_prototypes:
+                - uuid: ad5089c5f426474a88e6965e2dabb03b
+                  expression: 'last(/Monitoramento Mikrotik API/speed.interface.["{#INTERFACENAME}, {#INTERFACEID}"]) < last(/Monitoramento Mikrotik API/speed.interface.["{#INTERFACENAME}, {#INTERFACEID}"],#2)'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Monitoramento Mikrotik API/speed.interface.["{#INTERFACENAME}, {#INTERFACEID}"]) > last(/Monitoramento Mikrotik API/speed.interface.["{#INTERFACENAME}, {#INTERFACEID}"],#2)'
+                  name: 'Velocidade da interface {#INTERFACENAME} abaixo do valor anterior.'
+                  priority: INFO
+                  manual_close: 'YES'
+            - uuid: bed854affddb4f91a8c7f3402fb9a49e
+              name: 'Interface {#INTERFACENAME} Tipo:'
+              type: DEPENDENT
+              key: 'type.interface.["{#INTERFACENAME}, {#INTERFACEID}"]'
+              delay: '0'
+              history: 30d
+              value_type: TEXT
+              trends: '0'
+              description: |
+                Item voltado para descobrir o tipo da interface, exemplo:
+                - Ether
+                - Bridge
+                - Vlan
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.interface[?(@.name == "{#INTERFACENAME}")].type'
+                - type: REGEX
+                  parameters:
+                    - '\["([^"]+)"\]'
+                    - \1
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: network
+                - tag: information
+                  value: type
+                - tag: type
+                  value: ether
+            - uuid: d33af2dfe11949af86eef71853892cee
+              name: 'Interface {#INTERFACENAME} Tráfego de Upload atual:'
+              type: CALCULATED
+              key: 'upload.calculado.interface.["{#INTERFACENAME}, {#INTERFACEID}"]'
+              history: 30d
+              value_type: FLOAT
+              units: Mbps
+              params: 'last(//network.interface.txbytes.total.["{#INTERFACENAME}"]) - last(//network.interface.txbytes.total.["{#INTERFACENAME}"],#2)'
+              description: 'Item destinado a calcular a taxa de upload para monitoramento em tempo real'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-6'
+                - type: JAVASCRIPT
+                  parameters:
+                    - 'return parseFloat(value).toFixed(2);'
+              tags:
+                - tag: component
+                  value: network
+                - tag: information
+                  value: traffic
+                - tag: traffic
+                  value: upload
+                - tag: type
+                  value: ether
+          master_item:
+            key: api_dados.py
+          lld_macro_paths:
+            - lld_macro: '{#INTERFACEID}'
+              path: $.id
+            - lld_macro: '{#INTERFACENAME}'
+              path: $.name
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - '$.interfaceEthernet.[:]'
+        - uuid: 446489ae9e7d4e6ca1b665f68cef55d1
+          name: 'Interfaces Lógicas'
+          type: DEPENDENT
+          key: interfaces.logicas.gerais
+          delay: '0'
+          lifetime: 30d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Regra de descoberta das interfaces físicas'
+          item_prototypes:
+            - uuid: b6da9796119c4e79aceff90898b41fcd
+              name: 'Interface Lógica {#INTERFACENAME}  Tipo:'
+              type: DEPENDENT
+              key: 'interface.["{#INTERFACENAME}","{#INTERFACEID}"]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.interface[?(@.name == "{#INTERFACENAME}" && @.type != ''ether'' && @.type != ''sfp'')].type'
+                - type: REGEX
+                  parameters:
+                    - '\["([^"]+)"\]'
+                    - \1
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: information
+                  value: type
+                - tag: type
+                  value: logical
+          master_item:
+            key: api_dados.py
+          lld_macro_paths:
+            - lld_macro: '{#INTERFACEID}'
+              path: $.id
+            - lld_macro: '{#INTERFACENAME}'
+              path: $.name
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - '$.interface[?(@.type != ''ether'' && @.type != ''sfp'')]'
+        - uuid: c809887929b44c209fa49631ce5446fb
+          name: 'Informações do Sistema'
+          type: DEPENDENT
+          key: system.routerboard.info
+          delay: '0'
+          lifetime: 30d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Regra de descoberta das informações e recursos do sistema'
+          item_prototypes:
+            - uuid: 0e868665d33f40c2b5766505b8407892
+              name: 'Build Time'
+              type: DEPENDENT
+              key: 'build.time.["{#IDENTIFY}"]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              description: 'Item destinado a exibir a última vez que o equipamento {#IDENTIFY} foi atualizado'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.system.buildTime
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: atualization
+            - uuid: 60f3cccf2de3431eaef26f166bb0257e
+              name: 'Carga de CPU'
+              type: DEPENDENT
+              key: 'cpu.load.["{#IDENTIFY}"]'
+              delay: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.system.cpuLoad
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: load
+                - tag: type
+                  value: cpu
+            - uuid: 801e06b37a8d45e6bf884dc30380832b
+              name: 'Fimware Atual do RouterBOOT do Equipamento {#IDENTIFY}'
+              type: DEPENDENT
+              key: 'current.firmware.["{#IDENTIFY}"]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.system.currentFirmware
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: firmware
+                - tag: type
+                  value: version
+            - uuid: 0b34e06bae1e42498ea37707d2ffe601
+              name: 'Memória disponível do equipmaneto {#IDENTIFY}'
+              type: DEPENDENT
+              key: 'free.memory.["{#IDENTIFY}"]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.system.freeMemory
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: memory
+                - tag: memory
+                  value: free
+            - uuid: 68e57a64a24648a3ac60fe804c80eae6
+              name: 'Modelo do Equipamento {#IDENTIFY}'
+              type: DEPENDENT
+              key: 'model.routerboard.["{#IDENTIFY}"]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.system.model
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: model
+            - uuid: f1d922aa7a19488897f91b6696eb82ba
+              name: 'Nome do Equipamento'
+              type: DEPENDENT
+              key: 'routeros.identity.["{#IDENTIFY}"]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              description: 'Exibe o nome do equipamento definido em /System/Identify'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.system.name
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: identify
+            - uuid: 3b3d710df59445e89c6f9c00be046958
+              name: 'Memória total do equipamento {#IDENTIFY}'
+              type: DEPENDENT
+              key: 'total.memory.["{#IDENTIFY}"]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.system.totalMemory
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: memory
+                - tag: memory
+                  value: total
+            - uuid: 34c7e5df519e46ee8e3d9c36772a8371
+              name: 'Fimware para atualizar do RouterBOOT do Equipamento {#IDENTIFY}'
+              type: DEPENDENT
+              key: 'upgrade.firmware.["{#IDENTIFY}"]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.system.upgradeFirmware
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: firmware
+                - tag: type
+                  value: version
+            - uuid: a0766c5c7b834a5b927cbf4c41de5238
+              name: 'Uptime do equipamento {#IDENTIFY}'
+              type: DEPENDENT
+              key: 'uptime.["{#IDENTIFY}"]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.system.uptime
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      var time = value;
+                      
+                      // Expressões regulares para capturar semanas, dias, horas, minutos e segundos
+                      var weeks = /(\d+)w/.exec(time);
+                      var days = /(\d+)d/.exec(time);
+                      var hours = /(\d+)h/.exec(time);
+                      var minutes = /(\d+)m/.exec(time);
+                      var seconds = /(\d+)s/.exec(time);
+                      
+                      // Variáveis para armazenar o tempo total em segundos
+                      var totalSeconds = 0;
+                      
+                      // Converter semanas, dias, horas, minutos e segundos para o total em segundos
+                      if (weeks) {
+                          totalSeconds += parseInt(weeks[1]) * 7 * 24 * 3600; // 1 semana = 7 dias = 24 horas = 3600 segundos
+                      }
+                      if (days) {
+                          totalSeconds += parseInt(days[1]) * 24 * 3600; // 1 dia = 24 horas = 3600 segundos
+                      }
+                      if (hours) {
+                          totalSeconds += parseInt(hours[1]) * 3600; // horas = 3600 segundos
+                      }
+                      if (minutes) {
+                          totalSeconds += parseInt(minutes[1]) * 60; // minutos = 60 segundos
+                      }
+                      if (seconds) {
+                          totalSeconds += parseInt(seconds[1]); // segundos
+                      }
+                      
+                      // Calcular os dias, horas, minutos e segundos restantes
+                      var d = Math.floor(totalSeconds / (24 * 3600)); // total de dias
+                      var h = Math.floor((totalSeconds % (24 * 3600)) / 3600); // total de horas
+                      var m = Math.floor((totalSeconds % 3600) / 60); // total de minutos
+                      var s = totalSeconds % 60; // total de segundos
+                      
+                      // Criar a string formatada
+                      var result = "";
+                      if (d > 0) result += d + "d ";
+                      if (h > 0) result += h + "h ";
+                      if (m > 0) result += m + "m ";
+                      if (s > 0) result += s + "s";
+                      
+                      return result.trim();
+              master_item:
+                key: api_dados.py
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: disponibility
+                - tag: information
+                  value: uptime
+            - uuid: 942919fa642844939242719d0b7f65c2
+              name: 'Memória Utilizada do equipmaneto {#IDENTIFY}'
+              type: CALCULATED
+              key: 'used.memory.["{#IDENTIFY}"]'
+              units: B
+              params: 'last(//total.memory.["{#IDENTIFY}"]) - last(//free.memory.["{#IDENTIFY}"])'
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: memory
+                - tag: memory
+                  value: used
+            - uuid: 1b2459ae27c14d218a81e7ded2cbb8c0
+              name: 'Memória Utilizada em % do equipamento {#IDENTIFY}'
+              type: CALCULATED
+              key: 'used.percent.memory.["{#IDENTIFY}"]'
+              units: '%'
+              params: '(last(//used.memory.["{#IDENTIFY}"]) / last(//total.memory.["{#IDENTIFY}"])) * 100'
+              tags:
+                - tag: component
+                  value: system
+                - tag: information
+                  value: memory
+                - tag: memory
+                  value: 'percent used'
+          master_item:
+            key: api_dados.py
+          lld_macro_paths:
+            - lld_macro: '{#IDENTIFY}'
+              path: $.name
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var jsonData = JSON.parse(value);
+                  
+                  // Transformar o objeto system em um array
+                  if (jsonData.system && !Array.isArray(jsonData.system)) {
+                      jsonData.system = [jsonData.system];
+                  }
+                  
+                  return JSON.stringify(jsonData);
+            - type: JSONPATH
+              parameters:
+                - $.system
+      tags:
+        - tag: class
+          value: network
+        - tag: target
+          value: general
+        - tag: type
+          value: api
+      valuemaps:
+        - uuid: 282b3ccd0189468b8300d7d1a7756913
+          name: 'UP / DOWN'
+          mappings:
+            - value: '0'
+              newvalue: DOWN
+            - value: '1'
+              newvalue: UP
